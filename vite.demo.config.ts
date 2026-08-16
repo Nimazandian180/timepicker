@@ -12,7 +12,7 @@ import react from '@vitejs/plugin-react';
  * the domain root, where `DEMO_BASE=/` is correct).
  */
 export default defineConfig({
-  base: process.env.DEMO_BASE ?? '/jalali-timepicker/',
+  base: process.env.DEMO_BASE ?? '/timepicker/',
   root: 'demo',
   plugins: [react()],
   build: {

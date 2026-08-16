@@ -17,5 +17,9 @@
     "useDefineForClassFields": true,
     "noEmit": true
   },
-  "include": ["src", "vite.config.ts"]
+  // `demo` is committed and CI builds it, but Vite does not typecheck — without
+  // it here, a broken demo ships green. The scratch `demo-real` is deliberately
+  // absent: it resolves the date picker through a sibling checkout that only
+  // exists on one machine.
+  "include": ["src", "demo", "vite.config.ts", "vite.demo.config.ts"]
 }
