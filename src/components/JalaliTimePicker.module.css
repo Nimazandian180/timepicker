@@ -31,7 +31,6 @@
   --_face-border: var(--jtp-face-border, transparent);
   --_hand: var(--jtp-hand, var(--_primary));
   --_hand-width: var(--jtp-hand-width, 2px);
-  --_second-hand: var(--jtp-second-hand, var(--_danger));
   --_tick-size: var(--jtp-tick-size, 2rem);
   --_center-size: var(--jtp-center-size, 0.5rem);
 
@@ -280,15 +279,13 @@
 }
 
 /*
- * Hand length is set inline, not here: it has to match the radius of the ring
- * the selected value sits on, and in 24-hour mode the hour lives on either the
- * outer (1–12) or the inner (13–24) ring. A fixed length would park the knob on
- * the wrong ring for half the hours of the day.
+ * There is only ever one hand — the one for the unit being selected — so it
+ * needs no per-unit classes. Its length is set inline rather than here, because
+ * it has to match the radius of the ring the selected value sits on: in
+ * 24-hour mode the hour lives on either the outer (1–12) or the inner (13–24)
+ * ring, and a fixed length would park the knob on the wrong one for half the
+ * hours of the day.
  */
-.handSecond {
-  width: 1px;
-  background: var(--_second-hand);
-}
 
 /* The knob at the tip of the active hand, which is what the numbers highlight
    sits under. */

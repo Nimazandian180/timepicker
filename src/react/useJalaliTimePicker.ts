@@ -741,6 +741,8 @@ export function useJalaliTimePicker(
     [draft, is24],
   );
 
+  const activeView = pickerMode === 'hybrid' ? view : pickerMode;
+
   return {
     draft,
     selected,
@@ -755,7 +757,7 @@ export function useJalaliTimePicker(
     fields,
     meridiem: meridiemOf(draft),
     setMeridiem,
-    view: pickerMode === 'hybrid' ? view : pickerMode,
+    view: activeView,
     setView,
     canSwitchView: pickerMode === 'hybrid',
 

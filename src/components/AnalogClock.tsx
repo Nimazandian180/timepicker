@@ -33,10 +33,9 @@ export interface AnalogClockProps {
   ticks: readonly ClockTick[];
   /** Hand rotations, in degrees. */
   hands: ClockHands;
+  /** Which unit is being selected — the one the single hand points at. */
   stage: ClockStage;
   format: TimeFormat;
-  /** Draw the seconds hand. */
-  showSeconds?: boolean;
   /**
    * Commit a dial *position* and advance the stage (a tap, or the end of a
    * drag). Positions, not values: a drag can only read an angle, and on a
@@ -45,7 +44,7 @@ export interface AnalogClockProps {
   onSelect: (position: number, isInner?: boolean) => void;
   /** Update while dragging, without advancing. Same position space. */
   onDrag: (position: number, isInner?: boolean) => void;
-  /** Arrow keys move by this much in the minute/second stages. */
+  /** Arrow keys move by this much in the minute stage. */
   step?: number;
   className?: string;
 }
@@ -55,7 +54,6 @@ export function AnalogClock({
   hands,
   stage,
   format,
-  showSeconds = false,
   onSelect,
   onDrag,
   step = 1,
@@ -94,16 +92,18 @@ export function AnalogClock({
    */
   const handHeight = (radius: number) => `${radius * 50}%`;
 
-  // The hour hand reaches the inner ring only while an inner-ring hour is
-  // selected; everything else points at the outer ring.
-  const hourRadius =
+  const isHourStage = stage === 'hour';
+  // The one hand points at whichever unit is being selected.
+  const handAngle =
     stage === 'hour'
-      ? selected?.isInner
-        ? INNER_RADIUS
-        : OUTER_RADIUS
-      : hands.hourIsInner
-        ? INNER_RADIUS
-        : OUTER_RADIUS;
+      ? hands.hour
+      : stage === 'minute'
+        ? hands.minute
+        : hands.second;
+  // It only reaches the inner ring for an inner-ring hour (13–24 on the
+  // 24-hour face); the minute and second rings are always the outer one.
+  const handRadius =
+    isHourStage && hands.hourIsInner ? INNER_RADIUS : OUTER_RADIUS;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const unitStep = stage === 'hour' ? 1 : step;
@@ -146,42 +146,26 @@ export function AnalogClock({
       >
         <span className={styles.center} />
 
-        {/* Hands are drawn under the ticks so a tap always hits the number. */}
+        {/*
+         * Exactly one hand, belonging to whatever is being selected.
+         *
+         * This is a picker, not a wall clock: a hand here means "this is your
+         * current choice", so an idle hand alongside it is just another needle
+         * to mistake for the live one. Drawing only the active hand keeps the
+         * knob unambiguous, and means the face reads the same whether you are
+         * choosing an hour, a minute or (with `showSeconds`) a second.
+         *
+         * Drawn under the ticks, so a tap always lands on the number.
+         */}
         <span
           className={cn(styles.hand, isDragging && styles.handDragging)}
           style={{
-            height: handHeight(hourRadius),
-            transform: `translateX(-50%) rotate(${hands.hour}deg)`,
+            height: handHeight(handRadius),
+            transform: `translateX(-50%) rotate(${handAngle}deg)`,
           }}
         >
-          {stage === 'hour' && <span className={styles.handKnob} />}
+          <span className={styles.handKnob} />
         </span>
-
-        <span
-          className={cn(styles.hand, isDragging && styles.handDragging)}
-          style={{
-            height: handHeight(OUTER_RADIUS),
-            transform: `translateX(-50%) rotate(${hands.minute}deg)`,
-          }}
-        >
-          {stage === 'minute' && <span className={styles.handKnob} />}
-        </span>
-
-        {showSeconds && (
-          <span
-            className={cn(
-              styles.hand,
-              styles.handSecond,
-              isDragging && styles.handDragging,
-            )}
-            style={{
-              height: handHeight(OUTER_RADIUS),
-              transform: `translateX(-50%) rotate(${hands.second}deg)`,
-            }}
-          >
-            {stage === 'second' && <span className={styles.handKnob} />}
-          </span>
-        )}
 
         {ticks.map((tick) => (
           <button

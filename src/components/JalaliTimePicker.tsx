@@ -266,7 +266,6 @@ export function JalaliTimePicker(props: JalaliTimePickerProps) {
           hands={picker.hands}
           stage={picker.stage}
           format={picker.format}
-          showSeconds={showSeconds}
           step={picker.stage === 'minute' ? minuteInterval : 1}
           onSelect={picker.selectTick}
           onDrag={picker.dragTo}

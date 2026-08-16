@@ -92,6 +92,48 @@ describe('rendering', () => {
   });
 });
 
+/** Every hand drawn on the face. */
+const hands = (host: HTMLElement) =>
+  [...host.querySelectorAll('[class*="hand"]')].filter((el) =>
+    /(^|\s)\S*hand_/.test(el.className),
+  );
+
+describe('the clock hand', () => {
+  it('draws exactly one hand, whatever the stage', () => {
+    const host = render(<JalaliTimePicker now={NOW} showSeconds />);
+    expect(hands(host)).toHaveLength(1);
+
+    click(tick(host, '۹'));
+    expect(hands(host)).toHaveLength(1);
+
+    click(tick(host, '۳۰'));
+    expect(hands(host)).toHaveLength(1);
+  });
+
+  it('draws no seconds hand when seconds are off', () => {
+    const host = render(<JalaliTimePicker now={NOW} />);
+    click(tick(host, '۹'));
+    click(tick(host, '۳۰'));
+    // Still on the minute stage — nothing advanced into a seconds ring.
+    expect(
+      host.querySelector('[role="radiogroup"]')!.getAttribute('aria-label'),
+    ).toBe('انتخاب دقیقه');
+    expect(hands(host)).toHaveLength(1);
+  });
+
+  it('points the single hand at the second being selected', () => {
+    const host = render(<JalaliTimePicker now={NOW} showSeconds />);
+    click(tick(host, '۹'));
+    click(tick(host, '۳۰'));
+    click(tick(host, '۱۵'));
+    expect(reading(host)).toBe('۰۹:۳۰:۱۵');
+    // 15s is a quarter turn: the lone hand must be the seconds one.
+    expect((hands(host)[0] as HTMLElement).style.transform).toContain(
+      'rotate(90deg)',
+    );
+  });
+});
+
 describe('the default flow', () => {
   it('advances hour → minute after picking an hour', () => {
     const host = render(<JalaliTimePicker now={NOW} />);

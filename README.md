@@ -153,8 +153,14 @@ visible in the other.
 3. Picking minutes advances to seconds — but only when `showSeconds` is on.
 4. The big reading at the top is clickable: tap the hour to go back to it.
 
-Hands can be **dragged**, not just tapped. The hand follows the pointer
+The hand can be **dragged**, not just tapped. It follows the pointer
 continuously, snaps to `minuteInterval`, and commits when you let go.
+
+**There is only ever one hand** — the one for the unit you are choosing. This is
+a picker, not a wall clock: a hand here means "this is your selection", so an
+idle hand beside it would only be another needle to mistake for the live one.
+With `showSeconds` off there is no seconds hand at all; with it on, that same
+single hand carries you through the seconds ring.
 
 ---
 
@@ -443,10 +449,10 @@ ancestor and it cascades in.
 | `--jtp-hover-bg`    | `#f5f5f5` | Hover fill.                            |
 | `--jtp-selected-bg` | `#e6eaed` | Active meridiem pill, active endpoint. |
 | `--jtp-selected-fg` | `#171717` | Text on the above.                     |
-| `--jtp-primary`     | `#e4ae21` | Hands, knob, تأیید.                    |
+| `--jtp-primary`     | `#e4ae21` | The hand, its knob, تأیید.             |
 | `--jtp-primary-fg`  | `#171717` | Text on the primary fill.              |
 | `--jtp-focus-ring`  | `#e4ae21` | Keyboard focus outline.                |
-| `--jtp-danger`      | `#f55959` | Error message, seconds hand.           |
+| `--jtp-danger`      | `#f55959` | The validation message.                |
 
 ### Clock face
 
@@ -454,9 +460,8 @@ ancestor and it cascades in.
 | ------------------- | --------------- | -------------------------------------- |
 | `--jtp-face-bg`     | `#f7f7f7`       | The dial.                              |
 | `--jtp-face-border` | `transparent`   | Dial outline.                          |
-| `--jtp-hand`        | `--jtp-primary` | Hour/minute hands and the centre pin.  |
+| `--jtp-hand`        | `--jtp-primary` | The hand and the centre pin.           |
 | `--jtp-hand-width`  | `2px`           | Hand thickness.                        |
-| `--jtp-second-hand` | `--jtp-danger`  | The seconds hand.                      |
 | `--jtp-tick-size`   | `2rem`          | Hit area of each number, and the knob. |
 | `--jtp-center-size` | `0.5rem`        | The pin at the dial's centre.          |
 
