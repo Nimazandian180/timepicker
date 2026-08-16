@@ -117,6 +117,13 @@ function MiniHost<TExtra extends object>({
           isEmpty: false,
           confirm: () => onConfirm(extend()),
           cancel: () => {},
+          // This stand-in host draws the calendar and every plugin in one
+          // column, so it is the `'inline'` layout by definition: there are no
+          // tabs or steps to be on, hence always active and nowhere to go.
+          layout: 'inline',
+          isActive: true,
+          goNext: () => {},
+          goBack: () => {},
         };
         return (
           <div

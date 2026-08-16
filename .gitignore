@@ -17,3 +17,7 @@ demo/shots
 
 # feature changelogs — local notes, never committed
 CHANGES-*.md
+
+# scratch: runs demo-real against a sibling jalali-datepicker checkout
+demo-real/
+vite.real.config.ts
