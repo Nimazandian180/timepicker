@@ -456,14 +456,22 @@ ancestor and it cascades in.
 
 ### Clock face
 
-| Variable            | Default         | What it controls                       |
-| ------------------- | --------------- | -------------------------------------- |
-| `--jtp-face-bg`     | `#f7f7f7`       | The dial.                              |
-| `--jtp-face-border` | `transparent`   | Dial outline.                          |
-| `--jtp-hand`        | `--jtp-primary` | The hand and the centre pin.           |
-| `--jtp-hand-width`  | `2px`           | Hand thickness.                        |
-| `--jtp-tick-size`   | `2rem`          | Hit area of each number, and the knob. |
-| `--jtp-center-size` | `0.5rem`        | The pin at the dial's centre.          |
+| Variable              | Default              | What it controls                       |
+| --------------------- | -------------------- | -------------------------------------- |
+| `--jtp-face-bg`       | `#f7f7f7`            | The dial.                              |
+| `--jtp-face-border`   | `transparent`        | Dial outline.                          |
+| `--jtp-hand`          | `--jtp-primary`      | The hand and the centre pin.           |
+| `--jtp-hand-width`    | `2px`                | Hand thickness.                        |
+| `--jtp-tick-size`     | `2rem`               | Hit area of each number, and the knob. |
+| `--jtp-center-size`   | `0.5rem`             | The pin at the dial's centre.          |
+| `--jtp-tick-hover-fg` | 50% primary / 50% fg | Colour of a hovered number.            |
+
+Hovering a number **recolours the number** — it does not draw a circle behind
+it. A filled circle already means "selected" on this face (it is the hand's
+knob), so a hover circle read as a second selection. The default hover colour is
+mixed half-and-half with the foreground rather than being the primary outright,
+which keeps it above 5:1 contrast on the light dial and 10:1 on a dark one; a
+hovered number also goes semibold, so the cue does not rely on colour alone.
 
 ### Metrics
 

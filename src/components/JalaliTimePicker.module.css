@@ -32,6 +32,22 @@
   --_hand: var(--jtp-hand, var(--_primary));
   --_hand-width: var(--jtp-hand-width, 2px);
   --_tick-size: var(--jtp-tick-size, 2rem);
+  /* Hovering a number recolours the number itself — no circle behind it. A
+     filled circle reads as a selected state, which on this face already means
+     something specific (the hand's knob), so hovering used to look like a
+     second selection. Colour alone also cannot be washed out by whatever the
+     dial is set to.
+
+     Mixed half-and-half with the foreground rather than using the primary
+     outright: the number stays *text* while hovered, so it has to keep text
+     contrast, and a gold number on a light dial does not (≈2:1). Splitting the
+     difference reads as a clear colour shift while measuring about 5:1 on the
+     light dial and 10:1 on a dark one — no configuration, and no theme where
+     pointing at a number makes it harder to read than leaving it alone. */
+  --_tick-hover-fg: var(
+    --jtp-tick-hover-fg,
+    color-mix(in srgb, var(--_primary) 50%, var(--_fg))
+  );
   --_center-size: var(--jtp-center-size, 0.5rem);
 
   /* Metrics. The face is sized by one variable and everything inside it is a
@@ -319,11 +335,15 @@
   cursor: pointer;
   /* Above the hands, so a tap always lands on the number the user aimed at. */
   z-index: 1;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  /* Colour only — a tick's background never changes. */
+  transition: color 0.15s ease;
 }
 
 .tick:hover:not(:disabled) {
-  background: var(--_hover-bg);
+  color: var(--_tick-hover-fg);
+  /* A second cue that does not depend on colour at all, so the hover still
+     registers for anyone who cannot separate the two hues. */
+  font-weight: 600;
 }
 
 /* The inner 13–24 ring reads as secondary, matching how desktop clocks draw it. */
@@ -333,9 +353,14 @@
 }
 
 /* The selected number sits on the hand's knob, so it takes the knob's contrast
-   colour and drops its own background. */
+   colour and drops its own background.
+   `.tick.tickSelected:hover` rather than `.tickSelected:hover`: it has to match
+   the specificity of `.tick:hover:not(:disabled)` (0,3,0) to win on source
+   order. Otherwise hovering the selected number would tint it with the hover
+   colour — which is mixed from the primary, i.e. the knob it is sitting on,
+   leaving the number invisible against its own highlight. */
 .tickSelected,
-.tickSelected:hover {
+.tick.tickSelected:hover {
   color: var(--_primary-fg);
   background: transparent;
   font-weight: 600;
