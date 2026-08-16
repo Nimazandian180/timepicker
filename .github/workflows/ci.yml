@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # jsdom 30's bundled undici needs >=20.18; the
+          # other two workflows already pin 22, so this keeps them aligned
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        # Under several timezones: `nowTime()` reads the ambient clock, and a
+        # picker that behaves differently depending on the server's zone is a
+        # bug only a matrix catches.
+        run: npm run test:timezones
+
+      - name: Build
+        run: npm run build && npm run check:dist
