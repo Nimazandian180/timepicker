@@ -39,6 +39,7 @@ import {
   snapMinute,
   timeKey,
   to12Hour,
+  truncateTime,
   withMeridiem,
 } from '../core/time';
 import type {
@@ -50,6 +51,7 @@ import type {
   PickerMode,
   SelectionKind,
   TimeFormat,
+  TimePrecision,
   TimeRange,
   TimeSelection,
   TimeValue,
@@ -63,7 +65,7 @@ import {
   resolveTime,
 } from '../constraints/resolve';
 import type { TimeConstraints, TimeVerdict } from '../constraints/types';
-import { formatTime } from '../format/format';
+import { formatTime, resolvePrecision } from '../format/format';
 import { toPersianDigits } from '../format/digits';
 
 /** Which endpoint of a range is being edited. */
@@ -80,7 +82,12 @@ export interface UseJalaliTimePickerOptions {
   onChange?: (value: TimeValue | TimeRange | DurationValue) => void;
   /** 12-hour with ق.ظ/ب.ظ, or 24-hour. Default `'24h'`. */
   format?: TimeFormat;
-  /** Show and select seconds. Default `false`. */
+  /**
+   * How many units to ask for: `'hour'`, `'minute'` (the default) or
+   * `'second'`. Units below the precision are neither shown nor stored.
+   */
+  precision?: TimePrecision;
+  /** Show and select seconds. Shorthand for `precision: 'second'`. */
   showSeconds?: boolean;
   /** Snap minutes to a grid: 1, 5, 10, 15, 30 — or any number you like. Default `1`. */
   minuteInterval?: number;
@@ -148,7 +155,16 @@ export interface UseJalaliTimePickerResult {
   canSwitchView: boolean;
 
   // ----- the clock -----
+  /**
+   * The resolved precision — `'hour'`, `'minute'` or `'second'`. A custom UI
+   * should read this rather than the option it was given, since `showSeconds`
+   * feeds into it too.
+   */
+  precision: TimePrecision;
+  /** The stages this precision actually offers, in flow order. */
+  stages: ClockStage[];
   stage: ClockStage;
+  /** Ignores a stage the precision does not offer, so it cannot be stranded. */
   setStage: (stage: ClockStage) => void;
   /** The ticks to draw for the current stage, already positioned. */
   ticks: ClockTick[];
@@ -235,6 +251,21 @@ const timeToDuration = (value: TimeValue): DurationValue => ({
   minutes: value.minute,
 });
 
+/**
+ * Cut a time down to what the picker actually asked for.
+ *
+ * Only `'hour'` trims. With no minute field a stray `:47` is invisible,
+ * unreachable and would still ride out through `onChange` under a display
+ * reading «۰۹» — worse, tapping ۹ on a value of `10:47` would answer `09:47`,
+ * a time nobody chose.
+ *
+ * `'minute'` deliberately leaves the seconds alone. They are equally invisible,
+ * but a consumer who hands in `09:25:40` expects it back: nothing in the UI
+ * touches that field, so the picker has no business zeroing it either.
+ */
+const shapeTo = (value: TimeValue, precision: TimePrecision): TimeValue =>
+  precision === 'hour' ? truncateTime(value, 'hour') : value;
+
 export function useJalaliTimePicker(
   options: UseJalaliTimePickerOptions = {},
 ): UseJalaliTimePickerResult {
@@ -244,7 +275,8 @@ export function useJalaliTimePicker(
     defaultValue = null,
     onChange,
     format: formatOption,
-    showSeconds = false,
+    precision: precisionOption,
+    showSeconds,
     minuteInterval = 1,
     constraints = NO_CONSTRAINTS,
     minDuration = null,
@@ -254,6 +286,28 @@ export function useJalaliTimePicker(
     mode = 'confirm',
     pickerMode = 'hybrid',
   } = options;
+
+  const precision = resolvePrecision(precisionOption, showSeconds);
+  const hasMinutes = precision !== 'hour';
+  const hasSeconds = precision === 'second';
+  // The stages this picker walks, in order. An hour-only picker has one.
+  // Memoized so a consumer can safely put it in a dependency array.
+  const stages = useMemo<ClockStage[]>(
+    () =>
+      precision === 'second'
+        ? ['hour', 'minute', 'second']
+        : precision === 'minute'
+          ? ['hour', 'minute']
+          : ['hour'],
+    [precision],
+  );
+  /**
+   * With no minute field there is only one reachable minute — :00 — so the
+   * grid the whole engine snaps and searches on is a whole hour. Feeding that
+   * through as the interval is what makes اکنون land on 09:00 rather than
+   * offering 09:47, without any hour-only special cases downstream.
+   */
+  const interval = hasMinutes ? minuteInterval : MINUTES_PER_HOUR;
 
   // Resolved once per render, so every "now" question answers the same way.
   // `null` stays null; only `undefined` falls back to the ambient clock.
@@ -273,7 +327,20 @@ export function useJalaliTimePicker(
 
   const [selected, setSelected] = useState<TimeSelection>(committed);
   const [endpoint, setEndpoint] = useState<RangeEndpoint>('start');
-  const [stage, setStage] = useState<ClockStage>('hour');
+  const [stageState, setStageState] = useState<ClockStage>('hour');
+  // Read through the allowed set rather than storing a clamped value: flipping
+  // `precision` back to `'second'` should restore the stage the user was on,
+  // not silently rewrite it while seconds were hidden.
+  const stage = stages.includes(stageState) ? stageState : 'hour';
+  const setStage = useCallback(
+    (next: ClockStage) => {
+      if (!stages.includes(next)) return;
+      setStageState(next);
+    },
+    // `stages` is rebuilt each render but only ever changes with the precision.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [precision],
+  );
   const [format, setFormat] = useState<TimeFormat>(formatOption ?? '24h');
   const [view, setView] = useState<'analog' | 'digital'>(
     pickerMode === 'digital' ? 'digital' : 'analog',
@@ -296,23 +363,37 @@ export function useJalaliTimePicker(
   // ----- the time under the hands -------------------------------------------
 
   const draft = useMemo<TimeValue>(() => {
+    // Whatever the draft comes from — the selection, a value handed in from
+    // outside, or the clock — it is cut to the precision first.
+    const shape = (value: TimeValue) => shapeTo(value, precision);
+    const fallback = () =>
+      shape(snapMinute(nowTarget, interval, hasMinutes ? 'nearest' : 'down'));
+
     if (selectionMode === 'duration') {
       return isDuration(selected)
-        ? durationToTime(selected)
+        ? shape(durationToTime(selected))
         : { hour: 0, minute: 0, second: 0 };
     }
     if (selectionMode === 'range') {
       const current = isRange(selected) ? selected : null;
-      if (!current) return snapMinute(nowTarget, minuteInterval);
-      return endpoint === 'end'
-        ? (current.end ?? current.start)
-        : current.start;
+      if (!current) return fallback();
+      return shape(
+        endpoint === 'end' ? (current.end ?? current.start) : current.start,
+      );
     }
-    return isTime(selected) ? selected : snapMinute(nowTarget, minuteInterval);
+    return isTime(selected) ? shape(selected) : fallback();
     // `nowKey` rather than `nowTarget`: a caller passing a fresh literal each
     // render would otherwise recompute (and re-snap) the draft every time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectionMode, selected, endpoint, minuteInterval, nowKey]);
+  }, [
+    selectionMode,
+    selected,
+    endpoint,
+    interval,
+    hasMinutes,
+    precision,
+    nowKey,
+  ]);
 
   const isEmpty = selected === null;
 
@@ -331,7 +412,11 @@ export function useJalaliTimePicker(
    * stage it — and commit straight away in instant mode.
    */
   const applyDraft = useCallback(
-    (next: TimeValue) => {
+    (raw: TimeValue) => {
+      // The single gate every edit passes through, so nothing the precision
+      // rules out reaches the selection — or the consumer's `onChange`.
+      const next = shapeTo(raw, precision);
+
       if (selectionMode === 'duration') {
         const bounded = clampDuration(
           timeToDuration(next),
@@ -378,6 +463,7 @@ export function useJalaliTimePicker(
       commit,
       minDuration,
       maxDuration,
+      precision,
     ],
   );
 
@@ -408,7 +494,7 @@ export function useJalaliTimePicker(
       } else if (unit === 'minute') {
         // Nudging minutes moves by a whole interval, so the up-arrow on a
         // 15-minute picker goes :00 → :15 rather than :00 → :01 → …
-        const stepBy = Math.max(1, minuteInterval);
+        const stepBy = Math.max(1, interval);
         applyDraft(
           normalizeTime({ ...draft, minute: draft.minute + delta * stepBy }),
         );
@@ -416,7 +502,7 @@ export function useJalaliTimePicker(
         applyDraft(normalizeTime({ ...draft, second: draft.second + delta }));
       }
     },
-    [applyDraft, draft, minuteInterval],
+    [applyDraft, draft, interval],
   );
 
   const setMeridiem = useCallback(
@@ -447,9 +533,7 @@ export function useJalaliTimePicker(
           radius: OUTER_RADIUS,
           isInner: false,
           isSelected: draft.hour === hour24,
-          isDisabled: isHourDisabled(hour24, constraints, {
-            interval: minuteInterval,
-          }),
+          isDisabled: isHourDisabled(hour24, constraints, { interval }),
         });
       });
 
@@ -468,9 +552,7 @@ export function useJalaliTimePicker(
           radius: INNER_RADIUS,
           isInner: true,
           isSelected: draft.hour === hour24,
-          isDisabled: isHourDisabled(hour24, constraints, {
-            interval: minuteInterval,
-          }),
+          isDisabled: isHourDisabled(hour24, constraints, { interval }),
         });
       });
       return [...outer, ...inner];
@@ -497,9 +579,7 @@ export function useJalaliTimePicker(
       const value = index * labelStep;
       const disabled =
         unit === 'minute'
-          ? isMinuteDisabled(draft.hour, value, constraints, {
-              interval: minuteInterval,
-            })
+          ? isMinuteDisabled(draft.hour, value, constraints, { interval })
           : isSecondDisabled(draft.hour, draft.minute, value, constraints);
       return buildTick({
         value,
@@ -517,7 +597,7 @@ export function useJalaliTimePicker(
         isDisabled: disabled,
       });
     });
-  }, [stage, is24, draft, constraints, minuteInterval]);
+  }, [stage, is24, draft, constraints, minuteInterval, interval]);
 
   const hands = useMemo<ClockHands>(
     () => ({
@@ -580,27 +660,27 @@ export function useJalaliTimePicker(
           }),
         );
       } else if (stage === 'minute') {
-        const snapped = snapMinute(
-          { ...draft, minute: position },
-          minuteInterval,
-        );
+        const snapped = snapMinute({ ...draft, minute: position }, interval);
         applyDraft(snapped);
       } else {
         applyDraft(normalizeTime({ ...draft, second: position }));
       }
     },
-    [stage, draft, applyDraft, hourFromPosition, minuteInterval],
+    [stage, draft, applyDraft, hourFromPosition, interval],
   );
 
   const selectTick = useCallback(
     (position: number, isInner = false) => {
       dragTo(position, isInner);
-      // The point of the flow: picking an hour moves you to minutes, picking
-      // minutes moves you to seconds when they are shown, and otherwise stops.
-      if (stage === 'hour') setStage('minute');
-      else if (stage === 'minute' && showSeconds) setStage('second');
+      // The point of the flow: each pick moves to the next unit this precision
+      // asks for, and the last one stops. An hour-only picker never advances,
+      // so tapping ۹ is the whole interaction.
+      const at = stages.indexOf(stage);
+      const next = stages[at + 1];
+      if (next) setStage(next);
     },
-    [dragTo, stage, showSeconds],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dragTo, stage, setStage, precision],
   );
 
   // ----- validation ----------------------------------------------------------
@@ -615,15 +695,15 @@ export function useJalaliTimePicker(
       return { isAllowed: true, reason: null };
     }
     return resolveTime(draft, constraints, {
-      seconds: showSeconds,
-      interval: minuteInterval,
+      seconds: hasSeconds,
+      interval,
     });
   }, [
     selectionMode,
     draft,
     constraints,
-    showSeconds,
-    minuteInterval,
+    hasSeconds,
+    interval,
     minDuration,
     maxDuration,
   ]);
@@ -653,7 +733,12 @@ export function useJalaliTimePicker(
 
   const setNow = useCallback(
     () => {
-      const snapped = snapMinute(nowTarget, minuteInterval);
+      // Hour-only rounds *down*: at 10:47 «اکنون» means the hour you are in,
+      // not the one you are nearly at. With minutes on, nearest is right.
+      const snapped = shapeTo(
+        snapMinute(nowTarget, interval, hasMinutes ? 'nearest' : 'down'),
+        precision,
+      );
       if (selectionMode === 'duration') {
         applyDraft(snapped);
         return;
@@ -661,8 +746,8 @@ export function useJalaliTimePicker(
       // Land on the nearest *allowed* time: pressing اکنون at 20:00 with
       // business-hours constraints should give 17:00, not a rejected value.
       const allowed = nearestAllowedTime(snapped, constraints, {
-        interval: minuteInterval,
-        seconds: showSeconds,
+        interval,
+        seconds: hasSeconds,
       });
       applyDraft(allowed ?? snapped);
       setStage('hour');
@@ -670,9 +755,11 @@ export function useJalaliTimePicker(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       nowKey,
-      minuteInterval,
+      interval,
       constraints,
-      showSeconds,
+      hasMinutes,
+      hasSeconds,
+      precision,
       selectionMode,
       applyDraft,
     ],
@@ -686,7 +773,7 @@ export function useJalaliTimePicker(
     // A cleared value is a change like any other, so instant mode reports it.
     // `confirm` mode waits, as it does for everything else.
     if (mode === 'instant') onChange?.(MIDNIGHT);
-  }, [isControlled, mode, onChange]);
+  }, [isControlled, mode, onChange, setStage]);
 
   const confirm = useCallback((): TimeSelection => {
     if (!verdict.isAllowed || rangeInverted) return null;
@@ -717,7 +804,7 @@ export function useJalaliTimePicker(
     setSelected(committed);
     setStage('hour');
     setEndpoint('start');
-  }, [committed]);
+  }, [committed, setStage]);
 
   // ----- display -------------------------------------------------------------
 
@@ -725,9 +812,9 @@ export function useJalaliTimePicker(
     () =>
       formatTime(draft, {
         format: activeFormat,
-        showSeconds,
+        precision,
       }),
-    [draft, activeFormat, showSeconds],
+    [draft, activeFormat, precision],
   );
 
   const fields = useMemo(
@@ -761,6 +848,8 @@ export function useJalaliTimePicker(
     setView,
     canSwitchView: pickerMode === 'hybrid',
 
+    precision,
+    stages,
     stage,
     setStage,
     ticks,

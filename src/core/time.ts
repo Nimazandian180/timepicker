@@ -14,7 +14,12 @@ import {
   MINUTES_PER_HOUR,
   SECONDS_PER_MINUTE,
 } from './constants';
-import type { DurationValue, Meridiem, TimeValue } from './types';
+import type {
+  DurationValue,
+  Meridiem,
+  TimePrecision,
+  TimeValue,
+} from './types';
 
 /** Integer floor division that also behaves for negatives. */
 const floorDiv = (value: number, by: number): number => Math.floor(value / by);
@@ -52,6 +57,24 @@ export function normalizeTime(value: TimeValue): TimeValue {
     minute: mod(floorDiv(wrapped, SECONDS_PER_MINUTE), MINUTES_PER_HOUR),
     second: mod(wrapped, SECONDS_PER_MINUTE),
   };
+}
+
+/**
+ * Drop everything finer than `precision`: `'hour'` zeroes the minute and the
+ * second, `'minute'` zeroes the second, `'second'` changes nothing.
+ *
+ * The picker runs every edit through this, which is what keeps the emitted
+ * value honest. Without it an hour-only picker started at `10:47` would answer
+ * `09:47` when you tapped ۹ — minutes the user was never shown and cannot
+ * change, riding along in the value.
+ */
+export function truncateTime(
+  value: TimeValue,
+  precision: TimePrecision,
+): TimeValue {
+  if (precision === 'hour') return { hour: value.hour, minute: 0, second: 0 };
+  if (precision === 'minute') return { ...value, second: 0 };
+  return value;
 }
 
 /** Minutes since midnight, seconds discarded. */

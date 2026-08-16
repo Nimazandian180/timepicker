@@ -100,7 +100,7 @@ export function Footer() {
     >
       Built by{' '}
       <a href={REPO_URL} target="_blank" rel="noreferrer">
-        Ali Asadollahi
+        Nima Zandian
       </a>{' '}
       — MIT licensed
     </footer>

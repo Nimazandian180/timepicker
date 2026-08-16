@@ -4,14 +4,14 @@
  * The date-picker adapter — the optional bridge between this package and
  * `@aliasadollahi/jalali-datepicker`.
  *
- * Imported from `@aliasadollahi/jalali-timepicker/plugin`, never from the main
+ * Imported from `@nimazandian/jalali-timepicker/plugin`, never from the main
  * entry, so a consumer who only wants a time picker never pulls this in and a
  * bundler can drop it entirely.
  *
  * ```tsx
  * import { JalaliDatePicker } from '@aliasadollahi/jalali-datepicker';
- * import { timePlugin } from '@aliasadollahi/jalali-timepicker/plugin';
- * import '@aliasadollahi/jalali-timepicker/styles.css';
+ * import { timePlugin } from '@nimazandian/jalali-timepicker/plugin';
+ * import '@nimazandian/jalali-timepicker/styles.css';
  *
  * const plugins = [timePlugin({ format: '24h', minuteInterval: 15 })];
  *
@@ -25,6 +25,7 @@
  */
 import { JalaliTimePicker } from '../components/JalaliTimePicker';
 import type { JalaliTimePickerProps } from '../components/JalaliTimePicker';
+import { UNIT_LABELS } from '../core/constants';
 import { MIDNIGHT } from '../core/time';
 import type { TimeValue } from '../core/types';
 import type { DatePickerPlugin, DatePickerSlot } from './types';
@@ -47,8 +48,17 @@ export interface TimePluginOptions extends Omit<
   Extract<JalaliTimePickerProps, { selectionMode?: 'single' }>,
   'selectionMode' | 'value' | 'defaultValue' | 'onChange' | 'onConfirm'
 > {
-  /** Where the clock is placed inside the card. Default `'panel'`. */
+  /**
+   * Where the clock is placed inside the card under the host's `'inline'`
+   * layout. Default `'panel'`. Ignored under `'tabs'` / `'steps'`, where the
+   * clock is a panel of its own.
+   */
   slot?: DatePickerSlot;
+  /**
+   * The label for the clock's tab or step, when the host uses `'tabs'` or
+   * `'steps'`. Default «ساعت».
+   */
+  title?: string;
   /** The time the picker starts on. Default midnight. */
   defaultValue?: TimeValue;
   /** Fired whenever the time changes, independent of the date. */
@@ -72,6 +82,7 @@ export function timePlugin(
 ): DatePickerPlugin<TimeValue, TimeExtras> {
   const {
     slot = 'panel',
+    title = UNIT_LABELS.hour,
     defaultValue = MIDNIGHT,
     onTimeChange,
     name = 'time',
@@ -82,6 +93,7 @@ export function timePlugin(
   return {
     name,
     slot,
+    title,
     initialState: defaultValue,
 
     render: (ctx) => (

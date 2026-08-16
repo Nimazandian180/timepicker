@@ -1,15 +1,10 @@
 /**
- * Constraint evaluation. Pure functions over {@link TimeConstraints} — the
- * mirror of the date picker's `holidays/resolve.ts`.
+ * Constraint evaluation. Pure functions over {@link TimeConstraints}.
  *
- * Two distinct questions live here and they are easy to conflate:
- *
- *   - *Is this exact time allowed?* — {@link resolveTime}, used to validate a
- *     value and to decide whether تأیید may commit.
- *   - *Is any time under this clock tick allowed?* — {@link isHourDisabled} and
- *     {@link isMinuteDisabled}. An hour is only greyed out when **every** minute
- *     inside it is rejected; greying out 09:00 because 09:15 happens to be
- *     booked would make the hour unreachable.
+ * Two questions live here, easy to conflate: *is this exact time allowed?*
+ * ({@link resolveTime}) versus *is any time under this tick allowed?*
+ * ({@link isHourDisabled}). An hour is greyed out only when every minute in it
+ * is rejected — otherwise one booked slot would kill the whole hour.
  */
 import { MINUTES_PER_HOUR } from '../core/constants';
 import { compareTime, isOnInterval, isSameTime, toMinutes } from '../core/time';
@@ -25,12 +20,9 @@ const inMinuteRange = (minute: number, ranges: readonly MinuteRange[]) =>
   ranges.some((range) => minute >= range.from && minute <= range.to);
 
 /**
- * Judge one exact time.
- *
- * `seconds` controls the precision of the min/max comparison and of
- * `disabledTimes` matching: with the seconds field hidden, a `maxTime` of
- * `17:00` must not reject `17:00:30`, because the user has no way to express
- * anything but `:00` and would be stuck against an invisible wall.
+ * Judge one exact time. `seconds` sets the comparison precision: with seconds
+ * hidden, a `maxTime` of `17:00` must not reject `17:00:30`, which the user
+ * has no way to express or avoid.
  */
 export function resolveTime(
   value: TimeValue,
@@ -92,11 +84,8 @@ export function isTimeAllowed(
 }
 
 /**
- * True when no minute of `hour` is selectable, so the tick can be greyed out.
- *
- * Only minutes on the configured interval are considered: at `minuteInterval:
- * 30` the only reachable minutes are :00 and :30, so an hour whose :00 and :30
- * are both booked really is dead even if :17 would have been fine.
+ * True when no minute of `hour` is selectable. Only minutes on the configured
+ * interval count — at a 30-minute interval only :00 and :30 are reachable.
  */
 export function isHourDisabled(
   hour: number,
@@ -136,16 +125,11 @@ export function isSecondDisabled(
 }
 
 /**
- * The nearest allowed time to `value`, or `null` when the constraints leave
- * nothing selectable at all.
+ * The nearest allowed time to `value`, or `null` when nothing is selectable.
  *
- * Used when a value arrives out of range — an initial value outside `minTime`,
- * or اکنون pressed outside business hours. Searching outward from the requested
- * time (rather than clamping to the bound) lands on the closest usable slot in
- * either direction, which is what «نزدیک‌ترین زمان مجاز» should mean.
- *
- * The search is bounded by a day's worth of steps, so a fully-disabled config
- * terminates instead of spinning.
+ * Searches outward in both directions rather than clamping to a bound, so
+ * اکنون pressed outside business hours lands on the closest usable slot. Bounded
+ * by a day's steps, so a fully-disabled config terminates.
  */
 export function nearestAllowedTime(
   value: TimeValue,
@@ -162,10 +146,8 @@ export function nearestAllowedTime(
   const start = toMinutes(value);
   const dayMinutes = 24 * MINUTES_PER_HOUR;
 
-  // Walk the interval *grid*, not offsets from `value`. Stepping outward from
-  // an off-grid start (10:07 at a 15-minute interval) only ever visits other
-  // off-grid times, so every candidate would be rejected for `off-interval` and
-  // the search would return null with plenty of free slots available.
+  // Walk the interval *grid*, not offsets from `value`: stepping outward from
+  // an off-grid start only ever visits other off-grid times.
   const below = Math.floor(start / step) * step;
   const above = below + step;
 
@@ -183,9 +165,7 @@ export function nearestAllowedTime(
   for (let offset = 0; offset <= limit; offset += 1) {
     const down = below - offset * step;
     const up = above + offset * step;
-    // Genuinely nearest, by distance — with a forward tie-break, so an equally
-    // close later slot wins. "Move it on a bit" is the kinder default when the
-    // requested time is unavailable.
+    // Nearest by distance, with a forward tie-break.
     const downFirst = start - down < up - start;
     const first = at(downFirst ? down : up);
     if (first) return first;

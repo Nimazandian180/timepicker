@@ -102,6 +102,12 @@ function FakeDatePicker<TExtra extends object>({
           isEmpty: selection === null,
           confirm,
           cancel: () => setSelection(null),
+          // This host renders everything at once, so a plugin is always the
+          // visible panel and there is nowhere to navigate to.
+          layout: 'inline',
+          isActive: true,
+          goNext: () => {},
+          goBack: () => {},
         };
         return <div key={plugin.name}>{plugin.render?.(ctx)}</div>;
       })}

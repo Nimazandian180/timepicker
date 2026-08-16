@@ -23,9 +23,9 @@ import { CopyButton, Field, OutputRow, Panel, SegmentedControl } from './ui';
 const DATE: JalaliDateLike = { year: 1404, month: 5, day: 17 };
 
 const SNIPPET = `import { JalaliDatePicker } from '@aliasadollahi/jalali-datepicker';
-import { timePlugin } from '@aliasadollahi/jalali-timepicker/plugin';
+import { timePlugin } from '@nimazandian/jalali-timepicker/plugin';
 import '@aliasadollahi/jalali-datepicker/styles.css';
-import '@aliasadollahi/jalali-timepicker/styles.css';
+import '@nimazandian/jalali-timepicker/styles.css';
 
 const plugins = [timePlugin({ format: '24h', minuteInterval: 15 })];
 

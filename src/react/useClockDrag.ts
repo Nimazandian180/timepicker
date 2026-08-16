@@ -1,20 +1,12 @@
 'use client';
 
 /**
- * Pointer handling for the clock face — click, tap and drag, in one gesture
- * model.
+ * Pointer handling for the clock face — tap and drag in one gesture model,
+ * mouse/touch/pen on one code path.
  *
- * Everything runs on Pointer Events, so mouse, touch and pen take the same code
- * path; there is no separate touch branch to fall out of sync. Two details do
- * the real work:
- *
- *  - `setPointerCapture` on the face means a drag keeps tracking after the
- *    finger leaves the circle, and still ends correctly if it is released
- *    outside. Without it, dragging past the rim silently drops the gesture.
- *  - `touch-action: none` (set in CSS on the face) stops the browser treating a
- *    drag on the clock as a page scroll. On mobile that is the difference
- *    between a usable clock and one that scrolls the page whenever you try to
- *    set the time.
+ * Pointer capture keeps a drag tracking after the finger leaves the circle;
+ * `touch-action: none` (set on the face in CSS) stops the browser treating that
+ * drag as a page scroll.
  */
 import { useCallback, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
@@ -27,13 +19,13 @@ import {
 } from '../core/geometry';
 
 export interface UseClockDragOptions {
-  /** How many steps a full turn is divided into: 12 for hours, 60 otherwise. */
+  /** Steps in a full turn: 12 for hours, 60 otherwise. */
   steps: number;
-  /** True when the face has a second, inner ring (24-hour mode). */
+  /** True when the face has an inner 13–24 ring (24-hour mode). */
   hasInnerRing: boolean;
-  /** Called continuously while dragging. */
+  /** Fires continuously while dragging. */
   onDrag: (value: number, isInner: boolean) => void;
-  /** Called once when the pointer is released — this is what advances the stage. */
+  /** Fires once on release — this is what advances the stage. */
   onCommit: (value: number, isInner: boolean) => void;
 }
 
@@ -51,10 +43,8 @@ export function useClockDrag({
   onCommit,
 }: UseClockDragOptions): ClockDragHandlers {
   const dragging = useRef(false);
-  // The last value seen, so pointerup can commit it without re-reading the DOM.
   const last = useRef<{ value: number; isInner: boolean } | null>(null);
 
-  /** Turn a pointer position into a clock value, relative to the face's box. */
   const read = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       const box = event.currentTarget.getBoundingClientRect();
@@ -83,8 +73,7 @@ export function useClockDrag({
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
-      // Ignore secondary buttons: a right-click on the clock should open the
-      // context menu, not set the time.
+      // A right-click should open the context menu, not set the time.
       if (event.button !== 0 && event.pointerType === 'mouse') return;
       event.currentTarget.setPointerCapture?.(event.pointerId);
       dragging.current = true;
@@ -99,8 +88,7 @@ export function useClockDrag({
     (event: ReactPointerEvent<HTMLElement>) => {
       if (!dragging.current) return;
       const reading = read(event);
-      // Skip identical readings so a slow drag inside one step does not push a
-      // state update per pixel.
+      // Skip identical readings: no state update per pixel.
       if (
         last.current &&
         last.current.value === reading.value &&
@@ -128,8 +116,7 @@ export function useClockDrag({
 
   const onPointerCancel = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
-      // A cancelled gesture (the OS took over, the element was removed) keeps
-      // whatever the drag already applied but must not advance the stage.
+      // A cancelled gesture keeps what the drag applied but must not advance.
       dragging.current = false;
       last.current = null;
       event.currentTarget.releasePointerCapture?.(event.pointerId);

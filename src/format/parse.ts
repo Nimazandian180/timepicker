@@ -1,11 +1,8 @@
 /**
  * Input adapters: text back to a {@link TimeValue}.
  *
- * The digital fields let people type, and people type `9`, `۹:۵`, `09:05 PM`,
- * `۲۱:۳۰ ب.ظ` and `9.30`. All of it has to land on the same value or the field
- * fights the user. Parsing is therefore deliberately permissive about *shape*
- * and strict about *range*: anything structurally recognisable is accepted,
- * anything out of range is rejected rather than silently wrapped.
+ * People type `9`, `۹:۵`, `09:05 PM`, `۲۱:۳۰ ب.ظ` and `9.30`, and all of it has
+ * to land on the same value. Permissive about shape, strict about range.
  */
 import { HOURS_PER_DAY, MINUTES_PER_HOUR } from '../core/constants';
 import { from12Hour } from '../core/time';
@@ -21,19 +18,15 @@ const SEPARATOR = /[:.،,\s]+/;
 
 export interface ParseTimeOptions {
   /**
-   * Assume this half of the day when the text has no meridiem marker and the
-   * hour is 1–12. Without it, a bare `9` is read as 09:00 — which is right for
-   * a 24-hour field and wrong for a 12-hour one sitting on ب.ظ.
+   * Assumed half of the day when the text carries no marker. Without it a bare
+   * `9` reads as 09:00 — right for a 24-hour field, wrong for a 12-hour one.
    */
   meridiem?: Meridiem;
 }
 
 /**
- * Parse a time, or return `null` when the text is not one.
- *
- * `null` rather than a thrown error, and rather than a "best effort" value: a
- * half-typed `1` in a field must not be turned into `01:00` while the user is
- * still typing the `4` of `14`. Callers decide when input is final.
+ * Parse a time, or `null` when the text is not one — never a best guess, so a
+ * half-typed `1` is not turned into `01:00` mid-keystroke.
  */
 export function parseTime(
   input: string,
@@ -47,8 +40,7 @@ export function parseTime(
       ? 'pm'
       : options.meridiem;
 
-  // Strip the meridiem marker, fold digits, then keep only what could be a
-  // number or a separator — this is what makes `۰۹:۰۵ ب.ظ` and `9.5 pm` equal.
+  // Strip the marker and fold digits, so `۰۹:۰۵ ب.ظ` and `9.5 pm` agree.
   const cleaned = toLatinDigits(input)
     .replace(AM_PATTERN, '')
     .replace(PM_PATTERN, '')
@@ -75,8 +67,7 @@ export function parseTime(
   if (!Number.isInteger(minute) || minute >= MINUTES_PER_HOUR) return null;
   if (!Number.isInteger(second) || second >= 60) return null;
 
-  // With an explicit meridiem the hour must be a 12-hour reading; without one
-  // it is taken at face value, so `21:30` in a 24-hour field parses unchanged.
+  // With a meridiem the hour is a 12-hour reading; without one, face value.
   const hour = meridiem
     ? hour12 >= 1 && hour12 <= 12
       ? from12Hour(hour12, meridiem)
@@ -99,11 +90,8 @@ export function isValidTime(
 }
 
 /**
- * Parse a single field (an hour, a minute or a second box) to a number.
- *
- * Returns `null` for anything that is not digits, including the empty string —
- * an empty box is "still being typed", not "zero", and must not stomp the value
- * behind it.
+ * Parse one field box to a number. `null` for anything non-numeric, including
+ * empty — an empty box is "still being typed", not "zero".
  */
 export function parseField(input: string): number | null {
   const cleaned = toLatinDigits(input).trim();

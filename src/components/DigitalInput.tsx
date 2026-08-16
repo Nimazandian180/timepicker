@@ -4,21 +4,29 @@
  * The typable side of the picker: an hour, minute and optional second box, each
  * with increment/decrement controls.
  *
- * The subtle part is that a field must hold *invalid intermediate text* while
- * someone types. Typing `14` into an hour box means passing through `1`, and a
- * field that immediately normalised each keystroke would fight the user (`1` →
- * `01`, caret moved, next keystroke appends to the wrong place). So each box
- * keeps its own draft string while focused, and only commits on blur or Enter —
- * at which point out-of-range input is clamped rather than rejected outright.
+ * Two rules shape the typing model, and they pull in opposite directions:
+ *
+ *  - **A box must hold intermediate text.** Typing `14` into an hour box passes
+ *    through `1`, and a field that normalised every keystroke would fight the
+ *    user (`1` → `01`, caret moved, next keystroke lands in the wrong place).
+ *    So each box keeps its own draft string while focused and only commits on
+ *    blur or Enter.
+ *  - **A box must never hold an impossible number.** An hour cannot reach 24,
+ *    a minute or a second cannot reach 60, so a keystroke that would take the
+ *    box past its maximum is simply refused: the text does not change and there
+ *    is nothing to clamp later. Non-digits are refused the same way.
+ *
+ * Together those mean the draft is always a *prefix of a valid value* — `1` on
+ * the way to `14` is fine, `25` never appears at all.
  */
 import { useState } from 'react';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 
 import { UNIT_LABELS } from '../core/constants';
-import type { ClockStage } from '../core/types';
+import type { ClockStage, TimePrecision } from '../core/types';
 import { parseField } from '../format/parse';
-import { toPersianDigits } from '../format/digits';
-import { cn } from '../utils/cn';
+import { resolvePrecision } from '../format/format';
+import { toLatinDigits, toPersianDigits } from '../format/digits';
 import { ChevronDownIcon, ChevronUpIcon } from './icons';
 import styles from './JalaliTimePicker.module.css';
 
@@ -47,28 +55,33 @@ function Field({
 }: FieldProps) {
   // `null` means "not editing" — the box shows the committed value.
   const [draft, setDraft] = useState<string | null>(null);
-  const [invalid, setInvalid] = useState(false);
 
   const commit = (text: string) => {
     const parsed = parseField(text);
     setDraft(null);
-    if (parsed === null) {
-      // An empty or unparseable box reverts rather than becoming 0 — nobody
-      // tabbing through a form means "midnight" by clearing the hour.
-      setInvalid(false);
-      return;
-    }
-    setInvalid(false);
+    // An empty box reverts rather than becoming 0 — nobody tabbing through a
+    // form means "midnight" by clearing the hour. Anything else is already in
+    // range by construction; `min` is the one bound typing cannot enforce,
+    // since `0` is a legitimate prefix of `09` in a 1–12 box.
+    if (parsed === null) return;
     onCommit(Math.min(max, Math.max(min, parsed)));
   };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const text = event.target.value;
-    setDraft(text);
+    if (text === '') {
+      setDraft('');
+      return;
+    }
+    // Digits only, in whichever script was typed — anything else is refused
+    // outright rather than flagged, so the box cannot hold junk.
+    if (!/^[0-9۰-۹٠-٩]+$/.test(text)) return;
+    // The maximum's own width is the cap: a two-digit box takes two digits, and
+    // a third keystroke is dropped instead of silently replacing the number.
+    if (toLatinDigits(text).length > String(max).length) return;
     const parsed = parseField(text);
-    // Flag out-of-range input as it is typed, but do not block it: the user may
-    // be mid-way through a number that will end up valid.
-    setInvalid(text !== '' && (parsed === null || parsed > max));
+    if (parsed === null || parsed > max) return;
+    setDraft(text);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -84,7 +97,6 @@ function Field({
     } else if (event.key === 'Escape') {
       // Abandon the edit and fall back to the committed value.
       setDraft(null);
-      setInvalid(false);
     }
   };
 
@@ -93,9 +105,18 @@ function Field({
       <label className={styles.fieldLabel} htmlFor={`jtp-${unit}`}>
         {UNIT_LABELS[unit]}
       </label>
+      <button
+        type="button"
+        className={styles.stepButton}
+        aria-label={`افزایش ${UNIT_LABELS[unit]}`}
+        disabled={disabled}
+        onClick={() => onStep(1)}
+      >
+        <ChevronUpIcon className={styles.stepIcon} />
+      </button>
       <input
         id={`jtp-${unit}`}
-        className={cn(styles.fieldInput, invalid && styles.fieldInvalid)}
+        className={styles.fieldInput}
         // `text` rather than `number`: a number input rejects Persian digits
         // outright, and its own spinners cannot honour the minute interval.
         type="text"
@@ -107,7 +128,9 @@ function Field({
         aria-valuenow={parseField(value) ?? undefined}
         aria-valuemin={min}
         aria-valuemax={max}
-        aria-invalid={invalid || undefined}
+        // The box cannot hold an out-of-range number, so `maxLength` is belt
+        // and braces — but it also stops a paste before `onChange` sees it.
+        maxLength={String(max).length}
         disabled={disabled}
         value={draft ?? value}
         onChange={handleChange}
@@ -115,26 +138,15 @@ function Field({
         onKeyDown={handleKeyDown}
         onFocus={(event) => event.target.select()}
       />
-      <div className={styles.fieldStepper}>
-        <button
-          type="button"
-          className={styles.stepButton}
-          aria-label={`افزایش ${UNIT_LABELS[unit]}`}
-          disabled={disabled}
-          onClick={() => onStep(1)}
-        >
-          <ChevronUpIcon className={styles.stepIcon} />
-        </button>
-        <button
-          type="button"
-          className={styles.stepButton}
-          aria-label={`کاهش ${UNIT_LABELS[unit]}`}
-          disabled={disabled}
-          onClick={() => onStep(-1)}
-        >
-          <ChevronDownIcon className={styles.stepIcon} />
-        </button>
-      </div>
+      <button
+        type="button"
+        className={styles.stepButton}
+        aria-label={`کاهش ${UNIT_LABELS[unit]}`}
+        disabled={disabled}
+        onClick={() => onStep(-1)}
+      >
+        <ChevronDownIcon className={styles.stepIcon} />
+      </button>
     </div>
   );
 }
@@ -144,6 +156,9 @@ export interface DigitalInputProps {
   fields: { hour: string; minute: string; second: string };
   /** 12-hour boxes accept 1–12; 24-hour boxes accept 0–23. */
   is12Hour: boolean;
+  /** Which boxes to show: `'hour'`, `'minute'` (default) or `'second'`. */
+  precision?: TimePrecision;
+  /** Shorthand for `precision: 'second'`. */
   showSeconds?: boolean;
   onHour: (hour: number) => void;
   onMinute: (minute: number) => void;
@@ -157,7 +172,8 @@ export interface DigitalInputProps {
 export function DigitalInput({
   fields,
   is12Hour,
-  showSeconds = false,
+  precision,
+  showSeconds,
   onHour,
   onMinute,
   onSecond,
@@ -165,6 +181,7 @@ export function DigitalInput({
   disabled,
   maxHour,
 }: DigitalInputProps) {
+  const shown = resolvePrecision(precision, showSeconds);
   return (
     // Explicitly LTR: `10:30` is a numeric run that must not be reordered, and
     // the hour belongs on the left even inside an RTL card.
@@ -178,18 +195,22 @@ export function DigitalInput({
         onStep={(delta) => onStep('hour', delta)}
         disabled={disabled}
       />
-      <span className={styles.fieldSeparator} aria-hidden="true">
-        :
-      </span>
-      <Field
-        unit="minute"
-        value={fields.minute}
-        max={59}
-        onCommit={onMinute}
-        onStep={(delta) => onStep('minute', delta)}
-        disabled={disabled}
-      />
-      {showSeconds && (
+      {shown !== 'hour' && (
+        <>
+          <span className={styles.fieldSeparator} aria-hidden="true">
+            :
+          </span>
+          <Field
+            unit="minute"
+            value={fields.minute}
+            max={59}
+            onCommit={onMinute}
+            onStep={(delta) => onStep('minute', delta)}
+            disabled={disabled}
+          />
+        </>
+      )}
+      {shown === 'second' && (
         <>
           <span className={styles.fieldSeparator} aria-hidden="true">
             :

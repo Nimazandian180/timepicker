@@ -1,15 +1,9 @@
 /**
- * Timezone support — optional, and off unless a consumer asks for it.
+ * Optional timezone support, a thin read over `Intl` — no bundled tz database,
+ * since `Intl` already has one everywhere this package runs.
  *
- * This deliberately does **not** ship a bundled tz database. `Intl` already has
- * one in every browser and Node build this package supports, so shipping
- * another would add tens of kilobytes to a feature most pickers never turn on.
- * Everything here is a thin read over `Intl`.
- *
- * Note what timezone support means for this component: it labels and converts
- * a wall-clock time, it does not change what {@link TimeValue} is. The stored
- * value stays "10:30 in the selected zone" — which is exactly what a form field
- * means by a time, and avoids the trap of silently rebasing a user's input.
+ * It labels and converts a wall-clock time; it does not change what a
+ * {@link TimeValue} is. The stored value stays "10:30 in the selected zone".
  */
 import type { TimeValue } from '../core/types';
 
@@ -22,10 +16,7 @@ export interface TimezoneOption {
   offsetMinutes: number;
 }
 
-/**
- * A small, sensible default list. Iran first, then the zones an Iranian product
- * most often needs. Any IANA id works — this is a convenience, not a limit.
- */
+/** A default list; any IANA id works, so this is convenience, not a limit. */
 export const COMMON_TIMEZONES = [
   { id: 'Asia/Tehran', label: 'تهران' },
   { id: 'UTC', label: 'یوتی‌سی' },
@@ -53,16 +44,13 @@ export function localTimezone(): string {
 }
 
 /**
- * A zone's offset from UTC in minutes, at `at` (default: now).
- *
- * Resolved through `Intl` rather than a table because offsets move: Tehran was
- * +04:30 in summer until 2022 and is +03:30 year-round since, and any hardcoded
- * number would quietly rot.
+ * A zone's offset from UTC in minutes. Resolved through `Intl` rather than a
+ * table because offsets move — Tehran dropped DST in 2022.
  */
 export function offsetMinutes(timezone: string, at: Date = new Date()): number {
   try {
-    // Format the same instant in the target zone and in UTC, then difference
-    // them. `Intl` exposes no offset directly, and this is the standard way.
+    // `Intl` exposes no offset directly: format the same instant in both
+    // zones and difference them.
     const format = (zone: string) =>
       new Intl.DateTimeFormat('en-US', {
         timeZone: zone,
@@ -116,12 +104,9 @@ export function resolveTimezones(
 }
 
 /**
- * The same instant expressed in another zone.
- *
- * Offered for consumers who genuinely need to rebase a time — showing a
- * meeting's local start, say. The picker itself never calls it: changing the
- * selected zone relabels the value, it does not move the hands, because a user
- * who typed 10:30 means 10:30.
+ * The same instant in another zone. The picker never calls this — changing the
+ * zone relabels the value rather than moving the hands, because a user who
+ * typed 10:30 means 10:30. Offered for consumers who must rebase deliberately.
  */
 export function convertTime(
   value: TimeValue,

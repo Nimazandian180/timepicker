@@ -391,8 +391,11 @@
   gap: 0.25rem;
 }
 
+/* The line height is pinned because the separator's alignment is derived from
+   it — see .fieldSeparator. */
 .fieldLabel {
   font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--_muted);
 }
 
@@ -415,25 +418,14 @@
   outline: none;
 }
 
-.fieldInvalid,
-.fieldInvalid:focus {
-  border-color: var(--_danger);
-}
-
-.fieldStepper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
+/* The two steppers sandwich the input — up above the digits, down below — so
+   the arrows point at the box they move and each is as wide as it. */
 .stepButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 1.5rem is small for a finger, so the button carries padding that grows the
-     hit area past its painted box on touch. */
-  width: 1.75rem;
-  height: 1.125rem;
+  width: 3.25rem;
+  height: 1.25rem;
   padding: 0;
   color: var(--_muted);
   background: transparent;
@@ -459,6 +451,11 @@
   height: 0.75rem;
 }
 
+/* The colon has to sit level with the digits, not with the middle of the whole
+   column. The steppers are equal in height and gap, so the input is already
+   centred within them; the only thing pushing it down is the label. Padding of
+   exactly label + gap therefore moves the colon down by half of that — which is
+   the whole offset — and keeps working if the buttons or box change size. */
 .fieldSeparator {
   padding-top: 1.25rem;
   font-size: 1.25rem;
@@ -643,8 +640,8 @@
     --_tick-size: var(--jtp-tick-size, 2.5rem);
   }
 
+  /* Only taller: the width already matches the input box it sits against. */
   .stepButton {
-    width: 2.25rem;
     height: 1.75rem;
   }
 

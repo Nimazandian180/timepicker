@@ -57,6 +57,20 @@ const reading = (host: HTMLElement) =>
 const input = (host: HTMLElement, label: string) =>
   host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
 
+/**
+ * Put text in a controlled input the way a keystroke would. React swaps in its
+ * own value setter, so writing `el.value` directly is invisible to it — the
+ * native setter has to be called before the event is dispatched.
+ */
+function type(el: HTMLInputElement, text: string) {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )!.set!;
+  setter.call(el, text);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 describe('rendering', () => {
   it('renders on the server without touching the DOM', () => {
     const html = renderToStaticMarkup(<JalaliTimePicker now={NOW} />);
@@ -167,6 +181,18 @@ describe('the default flow', () => {
     expect(reading(host)).toBe('۰۰:۲۵');
   });
 
+  it('never leaves the hour stage at hour precision', () => {
+    const host = render(<JalaliTimePicker now={NOW} precision="hour" />);
+    click(tick(host, '۹'));
+    // Still hours: there is no minute stage to advance into, so the ticks are
+    // the same ring and a second tap picks another hour.
+    expect(
+      host.querySelector('[role="radiogroup"]')!.getAttribute('aria-label'),
+    ).toBe('انتخاب ساعت');
+    click(tick(host, '۱۱'));
+    expect(reading(host)).toBe('۱۱');
+  });
+
   it('lets the display send you back to the hour stage', () => {
     const host = render(<JalaliTimePicker now={NOW} />);
     click(tick(host, '۹'));
@@ -175,6 +201,80 @@ describe('the default flow', () => {
     click(hourUnit);
     click(tick(host, '۱۱'));
     expect(reading(host)).toBe('۱۱:۲۵');
+  });
+});
+
+describe('precision', () => {
+  it('shows one unit at hour, two at minute and three at second', () => {
+    const host = render(<JalaliTimePicker now={NOW} precision="hour" />);
+    expect(reading(host)).toBe('۱۴');
+    container?.remove();
+
+    const minutes = render(<JalaliTimePicker now={NOW} />);
+    expect(reading(minutes)).toBe('۱۴:۲۵');
+    container?.remove();
+
+    const seconds = render(
+      <JalaliTimePicker
+        now={NOW}
+        precision="second"
+        defaultValue={time(9, 5, 7)}
+      />,
+    );
+    expect(reading(seconds)).toBe('۰۹:۰۵:۰۷');
+  });
+
+  it('renders only the hour box in the digital view', () => {
+    const host = render(
+      <JalaliTimePicker now={NOW} mode="digital" precision="hour" />,
+    );
+    expect(input(host, 'ساعت')).not.toBeNull();
+    expect(input(host, 'دقیقه')).toBeNull();
+    expect(input(host, 'ثانیه')).toBeNull();
+  });
+
+  it('zeroes the minutes it never showed', () => {
+    const onChange = vi.fn();
+    const host = render(
+      <JalaliTimePicker
+        now={NOW}
+        precision="hour"
+        commitMode="instant"
+        defaultValue={time(10, 47, 30)}
+        onChange={onChange}
+      />,
+    );
+    // Opening on 10:47:30 already reads as the bare hour…
+    expect(reading(host)).toBe('۱۰');
+    click(tick(host, '۹'));
+    // …and picking an hour cannot drag those minutes along with it.
+    expect(onChange).toHaveBeenCalledWith(time(9, 0, 0));
+  });
+
+  it('treats showSeconds as a shorthand, with precision winning', () => {
+    const host = render(
+      <JalaliTimePicker now={NOW} showSeconds defaultValue={time(9, 5, 7)} />,
+    );
+    expect(reading(host)).toBe('۰۹:۰۵:۰۷');
+    container?.remove();
+
+    const explicit = render(
+      <JalaliTimePicker
+        now={NOW}
+        showSeconds
+        precision="minute"
+        defaultValue={time(9, 5, 7)}
+      />,
+    );
+    expect(reading(explicit)).toBe('۰۹:۰۵');
+  });
+
+  it('lands اکنون on the hour it is in, not the next one', () => {
+    const host = render(
+      <JalaliTimePicker now={time(10, 47)} precision="hour" />,
+    );
+    click(button(host, 'اکنون'));
+    expect(reading(host)).toBe('۱۰');
   });
 });
 
@@ -265,19 +365,13 @@ describe('digital input', () => {
     const hour = input(host, 'ساعت')!;
     act(() => {
       hour.focus();
-      // Simulate typing via the React-controlled value.
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        'value',
-      )!.set!;
-      setter.call(hour, '17');
-      hour.dispatchEvent(new Event('input', { bubbles: true }));
+      type(hour, '17');
       hour.blur();
     });
     expect(reading(host)).toBe('۱۷:۰۰');
   });
 
-  it('clamps out-of-range input rather than rejecting it', () => {
+  it('refuses a minute past 59 instead of holding it', () => {
     const host = render(
       <JalaliTimePicker now={NOW} mode="digital" defaultValue={time(9, 0)} />,
     );
@@ -286,15 +380,40 @@ describe('digital input', () => {
       // Focus first: React listens on focusout, so blur() on an unfocused
       // element would never reach onBlur and the commit would never run.
       minute.focus();
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        'value',
-      )!.set!;
-      setter.call(minute, '90');
-      minute.dispatchEvent(new Event('input', { bubbles: true }));
-      minute.blur();
+      type(minute, '90');
     });
-    expect(reading(host)).toBe('۰۹:۵۹');
+    // The keystroke never landed, so the box still shows the committed value.
+    expect(minute.value).toBe('۰۰');
+    act(() => minute.blur());
+    expect(reading(host)).toBe('۰۹:۰۰');
+  });
+
+  it('refuses an hour past 23, while allowing it as a prefix', () => {
+    const host = render(
+      <JalaliTimePicker now={NOW} mode="digital" defaultValue={time(9, 0)} />,
+    );
+    const hour = input(host, 'ساعت')!;
+    act(() => {
+      hour.focus();
+      // `2` is fine on its own — 20–23 all start with it — but `24` is not.
+      type(hour, '2');
+      type(hour, '24');
+    });
+    expect(hour.value).toBe('2');
+    act(() => hour.blur());
+    expect(reading(host)).toBe('۰۲:۰۰');
+  });
+
+  it('refuses anything that is not a digit', () => {
+    const host = render(
+      <JalaliTimePicker now={NOW} mode="digital" defaultValue={time(9, 0)} />,
+    );
+    const minute = input(host, 'دقیقه')!;
+    act(() => {
+      minute.focus();
+      type(minute, 'ab');
+    });
+    expect(minute.value).toBe('۰۰');
   });
 
   it('shows the seconds box only when asked', () => {

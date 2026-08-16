@@ -14,3 +14,6 @@ demo/shots
 # IDE
 .idea
 .vscode
+
+# feature changelogs — local notes, never committed
+CHANGES-*.md

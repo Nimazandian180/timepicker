@@ -1,4 +1,4 @@
-# @aliasadollahi/jalali-timepicker
+# @nimazandian/jalali-timepicker
 
 A self-contained, RTL-first **Persian time picker for React** — an analog clock,
 digital fields, or both. 12/24-hour, range and duration modes, minute intervals,
@@ -10,12 +10,12 @@ It works on its own, and it plugs into
 to become a date **and** time picker. Neither package depends on the other.
 
 ```bash
-npm i @aliasadollahi/jalali-timepicker
+npm i @nimazandian/jalali-timepicker
 ```
 
 ```tsx
-import { JalaliTimePicker } from '@aliasadollahi/jalali-timepicker';
-import '@aliasadollahi/jalali-timepicker/styles.css';
+import { JalaliTimePicker } from '@nimazandian/jalali-timepicker';
+import '@nimazandian/jalali-timepicker/styles.css';
 
 <JalaliTimePicker
   defaultValue={{ hour: 10, minute: 30, second: 0 }}
@@ -74,7 +74,7 @@ This one:
 ## Install
 
 ```bash
-npm i @aliasadollahi/jalali-timepicker
+npm i @nimazandian/jalali-timepicker
 ```
 
 Peer dependencies:
@@ -88,13 +88,13 @@ Installing the date picker is optional — npm will note the unmet optional peer
 and carry on. Install it only if you want the calendar integration:
 
 ```bash
-npm i @aliasadollahi/jalali-datepicker @aliasadollahi/jalali-timepicker
+npm i @aliasadollahi/jalali-datepicker @nimazandian/jalali-timepicker
 ```
 
 Then import the stylesheet once, anywhere in your app:
 
 ```tsx
-import '@aliasadollahi/jalali-timepicker/styles.css';
+import '@nimazandian/jalali-timepicker/styles.css';
 ```
 
 ---
@@ -107,8 +107,8 @@ import {
   JalaliTimePicker,
   formatTime,
   type TimeValue,
-} from '@aliasadollahi/jalali-timepicker';
-import '@aliasadollahi/jalali-timepicker/styles.css';
+} from '@nimazandian/jalali-timepicker';
+import '@nimazandian/jalali-timepicker/styles.css';
 
 export function MeetingTime() {
   const [time, setTime] = useState<TimeValue | null>(null);
@@ -140,7 +140,7 @@ presented.
 
 ```tsx
 <JalaliTimePicker mode="analog" />
-<JalaliTimePicker mode="digital" showSeconds />
+<JalaliTimePicker mode="digital" precision="second" />
 ```
 
 Both surfaces read and write the same state, so a change in one is immediately
@@ -150,8 +150,11 @@ visible in the other.
 
 1. The picker opens on the hour stage.
 2. Tapping (or dragging to) an hour advances to minutes.
-3. Picking minutes advances to seconds — but only when `showSeconds` is on.
+3. Picking minutes advances to seconds — but only at `precision="second"`.
 4. The big reading at the top is clickable: tap the hour to go back to it.
+
+At `precision="hour"` the flow is one step long: tapping an hour is the whole
+interaction, and the picker never leaves the hour ring.
 
 The hand can be **dragged**, not just tapped. It follows the pointer
 continuously, snaps to `minuteInterval`, and commits when you let go.
@@ -159,8 +162,38 @@ continuously, snaps to `minuteInterval`, and commits when you let go.
 **There is only ever one hand** — the one for the unit you are choosing. This is
 a picker, not a wall clock: a hand here means "this is your selection", so an
 idle hand beside it would only be another needle to mistake for the live one.
-With `showSeconds` off there is no seconds hand at all; with it on, that same
+Below `precision="second"` there is no seconds hand at all; at it, that same
 single hand carries you through the seconds ring.
+
+---
+
+## Precision
+
+`precision` decides how much of a time you are asking for.
+
+| `precision` | Shows                           | Reads as   |
+| ----------- | ------------------------------- | ---------- |
+| `'hour'`    | Hour only                       | `۰۹`       |
+| `'minute'`  | Hour + minute — **the default** | `۰۹:۳۰`    |
+| `'second'`  | Hour + minute + second          | `۰۹:۳۰:۱۵` |
+
+```tsx
+<JalaliTimePicker precision="hour" />    {/* one tap and done */}
+<JalaliTimePicker precision="minute" />  {/* the default */}
+<JalaliTimePicker precision="second" />
+```
+
+It drives everything at once: which units the big reading shows, which boxes the
+digital view renders, how far the clock's tap-to-advance flow runs, and how
+`formatTime` prints the result.
+
+At `precision="hour"` the emitted value's minutes and seconds are always `0` —
+the picker will not hand back minutes the user was never shown. `minuteInterval`
+is ignored there for the same reason: the only reachable minute is `:00`, so
+«اکنون» at 10:47 lands on 10:00 rather than offering a minute you cannot change.
+
+`showSeconds` still works as a shorthand for `precision="second"`. If both are
+given, `precision` wins.
 
 ---
 
@@ -321,7 +354,7 @@ typed 10:30 means 10:30. If you need to rebase an instant, the conversion is
 exported for you to call deliberately:
 
 ```tsx
-import { convertTime } from '@aliasadollahi/jalali-timepicker';
+import { convertTime } from '@nimazandian/jalali-timepicker';
 
 convertTime({ hour: 10, minute: 30, second: 0 }, 'Asia/Tehran', 'UTC');
 ```
@@ -362,9 +395,9 @@ never pull it into their bundle.
 
 ```tsx
 import { JalaliDatePicker } from '@aliasadollahi/jalali-datepicker';
-import { timePlugin } from '@aliasadollahi/jalali-timepicker/plugin';
+import { timePlugin } from '@nimazandian/jalali-timepicker/plugin';
 import '@aliasadollahi/jalali-datepicker/styles.css';
-import '@aliasadollahi/jalali-timepicker/styles.css';
+import '@nimazandian/jalali-timepicker/styles.css';
 
 // Hoist or memoize — a new array identity every render re-renders the slot.
 const plugins = [timePlugin({ format: '24h', minuteInterval: 15 })];
@@ -524,8 +557,12 @@ value, so the two sit together in one popover without either being re-themed.
   `aria-checked`, the hand and the knob; the active display unit uses
   `aria-pressed`; the active range endpoint gets a border as well as a fill.
 - The validation message is `role="alert"`, so it is announced when it appears.
-- Digital fields are `spinbutton`s with `aria-valuemin`/`max`/`now`, and mark
-  out-of-range text with `aria-invalid` as it is typed.
+- Digital fields are `spinbutton`s with `aria-valuemin`/`max`/`now`. They cannot
+  be typed out of range at all: an hour box refuses a keystroke that would take
+  it past 23 (12 in 12-hour mode), and a minute or second box past 59, so there
+  is never an invalid state to announce or recover from. A digit that is only
+  valid as a _prefix_ still goes in — `1` on the way to `19` — and non-digits
+  are refused outright.
 - Animation is dropped under `prefers-reduced-motion`.
 
 ---
@@ -551,7 +588,7 @@ value, so the two sit together in one popover without either being re-themed.
 UI is just one consumer of it. Use it to build a completely different clock.
 
 ```tsx
-import { useJalaliTimePicker } from '@aliasadollahi/jalali-timepicker';
+import { useJalaliTimePicker } from '@nimazandian/jalali-timepicker';
 
 function MyClock() {
   const clock = useJalaliTimePicker({ format: '12h', minuteInterval: 5 });
@@ -599,7 +636,7 @@ import {
   toISOTime,
   toDate,
   parseTime,
-} from '@aliasadollahi/jalali-timepicker';
+} from '@nimazandian/jalali-timepicker';
 
 formatTime({ hour: 22, minute: 30, second: 0 }); // '۲۲:۳۰'
 formatTime({ hour: 22, minute: 30, second: 0 }, { format: '12h' }); // '۱۰:۳۰ ب.ظ'
@@ -638,41 +675,42 @@ into `01:00` while the user is still typing the `4` of `14`.
 
 ### `<JalaliTimePicker>`
 
-| Prop                     | Type                                | Default     |
-| ------------------------ | ----------------------------------- | ----------- |
-| `selectionMode`          | `'single' \| 'range' \| 'duration'` | `'single'`  |
-| `mode`                   | `'hybrid' \| 'analog' \| 'digital'` | `'hybrid'`  |
-| `format`                 | `'12h' \| '24h'`                    | `'24h'`     |
-| `value`                  | matches `selectionMode`             | —           |
-| `defaultValue`           | matches `selectionMode`             | —           |
-| `onChange`               | `(value) => void`                   | —           |
-| `onConfirm`              | `(value \| null) => void`           | —           |
-| `onCancel` / `onClear`   | `() => void`                        | —           |
-| `showSeconds`            | `boolean`                           | `false`     |
-| `minuteInterval`         | `number`                            | `1`         |
-| `leadingZero`            | `boolean`                           | `true`      |
-| `minTime` / `maxTime`    | `TimeValue \| null`                 | —           |
-| `disabledHours`          | `readonly number[]`                 | —           |
-| `disabledMinutes`        | `readonly number[]`                 | —           |
-| `disabledMinuteRanges`   | `readonly { from, to }[]`           | —           |
-| `disabledTimes`          | `readonly TimeValue[]`              | —           |
-| `disabledTime`           | `(value) => boolean`                | —           |
-| `showError`              | `boolean`                           | `true`      |
-| `commitMode`             | `'confirm' \| 'instant'`            | `'confirm'` |
-| `showFooter`             | `boolean`                           | `true`      |
-| `showNow`                | `boolean`                           | `true`      |
-| `showClear`              | `boolean`                           | `false`     |
-| `showCancel`             | `boolean`                           | `true`      |
-| `showDone`               | `boolean`                           | `true`      |
-| `now`                    | `TimeValue \| null`                 | ambient     |
-| `timezone`               | `boolean`                           | `false`     |
-| `timezoneValue`          | `string`                            | viewer's    |
-| `onTimezoneChange`       | `(zone: string) => void`            | —           |
-| `timezones`              | `readonly string[]`                 | common list |
-| `sameDay` (range)        | `boolean`                           | `true`      |
-| `minDuration` (duration) | `number \| null` (minutes)          | —           |
-| `maxDuration` (duration) | `number \| null` (minutes)          | —           |
-| `className`              | `string`                            | —           |
+| Prop                     | Type                                           | Default     |
+| ------------------------ | ---------------------------------------------- | ----------- |
+| `selectionMode`          | `'single' \| 'range' \| 'duration'`            | `'single'`  |
+| `mode`                   | `'hybrid' \| 'analog' \| 'digital'`            | `'hybrid'`  |
+| `format`                 | `'12h' \| '24h'`                               | `'24h'`     |
+| `value`                  | matches `selectionMode`                        | —           |
+| `defaultValue`           | matches `selectionMode`                        | —           |
+| `onChange`               | `(value) => void`                              | —           |
+| `onConfirm`              | `(value \| null) => void`                      | —           |
+| `onCancel` / `onClear`   | `() => void`                                   | —           |
+| `precision`              | `'hour' \| 'minute' \| 'second'`               | `'minute'`  |
+| `showSeconds`            | `boolean` — shorthand for `precision="second"` | `false`     |
+| `minuteInterval`         | `number`                                       | `1`         |
+| `leadingZero`            | `boolean`                                      | `true`      |
+| `minTime` / `maxTime`    | `TimeValue \| null`                            | —           |
+| `disabledHours`          | `readonly number[]`                            | —           |
+| `disabledMinutes`        | `readonly number[]`                            | —           |
+| `disabledMinuteRanges`   | `readonly { from, to }[]`                      | —           |
+| `disabledTimes`          | `readonly TimeValue[]`                         | —           |
+| `disabledTime`           | `(value) => boolean`                           | —           |
+| `showError`              | `boolean`                                      | `true`      |
+| `commitMode`             | `'confirm' \| 'instant'`                       | `'confirm'` |
+| `showFooter`             | `boolean`                                      | `true`      |
+| `showNow`                | `boolean`                                      | `true`      |
+| `showClear`              | `boolean`                                      | `false`     |
+| `showCancel`             | `boolean`                                      | `true`      |
+| `showDone`               | `boolean`                                      | `true`      |
+| `now`                    | `TimeValue \| null`                            | ambient     |
+| `timezone`               | `boolean`                                      | `false`     |
+| `timezoneValue`          | `string`                                       | viewer's    |
+| `onTimezoneChange`       | `(zone: string) => void`                       | —           |
+| `timezones`              | `readonly string[]`                            | common list |
+| `sameDay` (range)        | `boolean`                                      | `true`      |
+| `minDuration` (duration) | `number \| null` (minutes)                     | —           |
+| `maxDuration` (duration) | `number \| null` (minutes)                     | —           |
+| `className`              | `string`                                       | —           |
 
 ### Types
 
@@ -730,4 +768,4 @@ releases are cut by semantic-release from the commit messages.
 
 ## Licence
 
-MIT © Ali Asadollahi
+MIT © Nima Zandian

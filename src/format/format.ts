@@ -18,15 +18,32 @@ import {
 import type {
   DurationValue,
   TimeFormat,
+  TimePrecision,
   TimeRange,
   TimeValue,
 } from '../core/types';
 import { pad2, toPersianDigits } from './digits';
 
+/**
+ * Resolve the one precision setting from the two ways of asking for it.
+ *
+ * `precision` wins when given; otherwise the older `showSeconds` boolean still
+ * means what it always did, so nothing that passes it needs changing.
+ */
+export function resolvePrecision(
+  precision: TimePrecision | undefined,
+  showSeconds: boolean | undefined,
+): TimePrecision {
+  if (precision) return precision;
+  return showSeconds ? 'second' : 'minute';
+}
+
 export interface TimeFormatOptions {
   /** 12-hour with a ق.ظ/ب.ظ suffix, or 24-hour. Default `'24h'`. */
   format?: TimeFormat;
-  /** Include the seconds field. Default `false`. */
+  /** How many units to print: `'hour'`, `'minute'` (default) or `'second'`. */
+  precision?: TimePrecision;
+  /** Include the seconds field. Shorthand for `precision: 'second'`. */
   showSeconds?: boolean;
   /** Pad a single-digit hour: `09:05` vs `9:05`. Default `true`. */
   leadingZero?: boolean;
@@ -37,7 +54,8 @@ export interface TimeFormatOptions {
 }
 
 /**
- * A time as text: `۱۰:۳۰ ق.ظ`, `22:30`, `09:05:07`.
+ * A time as text: `۱۰:۳۰ ق.ظ`, `22:30`, `09:05:07` — or a bare `۱۰` at
+ * `precision: 'hour'`.
  *
  * The separator is a plain colon in both directions. Under `dir="rtl"` the
  * browser's bidi algorithm already renders `10:30` left-to-right as a numeric
@@ -50,15 +68,18 @@ export function formatTime(
 ): string {
   const {
     format = '24h',
-    showSeconds = false,
+    precision,
+    showSeconds,
     leadingZero = true,
     persianDigits = true,
     showMeridiem = true,
   } = options;
 
+  const unit = resolvePrecision(precision, showSeconds);
   const hour = format === '12h' ? to12Hour(value.hour) : value.hour;
-  const parts = [pad2(hour, leadingZero), pad2(value.minute)];
-  if (showSeconds) parts.push(pad2(value.second));
+  const parts = [pad2(hour, leadingZero)];
+  if (unit !== 'hour') parts.push(pad2(value.minute));
+  if (unit === 'second') parts.push(pad2(value.second));
 
   const text = parts.join(':');
   const digits = persianDigits ? toPersianDigits(text) : text;
@@ -140,10 +161,21 @@ export function fromDate(date: Date): TimeValue {
   };
 }
 
-/** An `HH:mm` / `HH:mm:ss` string, always Latin digits and always 24-hour. */
-export function toISOTime(value: TimeValue, showSeconds = false): string {
+/**
+ * An `HH:mm` / `HH:mm:ss` string, always Latin digits and always 24-hour.
+ *
+ * Takes `true` (or `'second'`) to include the seconds field. An hour-only
+ * picker still gets `HH:mm` — its minutes are zero anyway, and `09:00` is
+ * accepted by every parser while a bare `09` is not.
+ */
+export function toISOTime(
+  value: TimeValue,
+  seconds: boolean | TimePrecision = false,
+): string {
+  const withSeconds =
+    typeof seconds === 'boolean' ? seconds : seconds === 'second';
   const parts = [pad2(value.hour), pad2(value.minute)];
-  if (showSeconds) parts.push(pad2(value.second));
+  if (withSeconds) parts.push(pad2(value.second));
   return parts.join(':');
 }
 

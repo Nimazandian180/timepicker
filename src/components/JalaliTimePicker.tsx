@@ -9,6 +9,7 @@ import type {
   DurationValue,
   PickerMode,
   TimeFormat,
+  TimePrecision,
   TimeRange,
   TimeValue,
 } from '../core/types';
@@ -32,7 +33,20 @@ interface CommonProps {
   mode?: PickerMode;
   /** 12-hour with ق.ظ/ب.ظ pills, or 24-hour. Default `'24h'`. */
   format?: TimeFormat;
-  /** Show and select seconds. Default `false`. */
+  /**
+   * How much of a time to ask for:
+   *
+   * - `'hour'`   — the hour alone. One tap and you are done; the value's
+   *                minutes and seconds are always zero.
+   * - `'minute'` — hour and minute. The default.
+   * - `'second'` — hour, minute and second.
+   *
+   * It drives everything: which units the display shows, which boxes the
+   * digital view renders, how far the clock's tap-to-advance flow runs, and
+   * what ends up in the emitted {@link TimeValue}.
+   */
+  precision?: TimePrecision;
+  /** Show and select seconds. Shorthand for `precision: 'second'`. */
   showSeconds?: boolean;
   /** Snap minutes to a grid: 1, 5, 10, 15, 30 — or any number. Default `1`. */
   minuteInterval?: number;
@@ -131,7 +145,8 @@ export function JalaliTimePicker(props: JalaliTimePickerProps) {
     className,
     mode = 'hybrid',
     format,
-    showSeconds = false,
+    precision,
+    showSeconds,
     minuteInterval = 1,
     leadingZero = true,
     showFooter = true,
@@ -156,6 +171,7 @@ export function JalaliTimePicker(props: JalaliTimePickerProps) {
     onChange: props.onChange as
       ((value: TimeValue | TimeRange | DurationValue) => void) | undefined,
     format,
+    precision,
     showSeconds,
     minuteInterval,
     constraints: {
@@ -180,9 +196,12 @@ export function JalaliTimePicker(props: JalaliTimePickerProps) {
   const [localZone, setLocalZone] = useState(localTimezone);
   const zone = timezoneValue ?? localZone;
 
+  // The hook resolves `precision` and `showSeconds` into one answer; everything
+  // downstream reads that rather than the raw props, so the two can never
+  // disagree about how many units to draw.
   const formatOptions = {
     format: picker.format,
-    showSeconds,
+    precision: picker.precision,
     leadingZero,
   };
 
@@ -248,7 +267,7 @@ export function JalaliTimePicker(props: JalaliTimePickerProps) {
         stage={picker.stage}
         onStage={picker.setStage}
         format={picker.format}
-        showSeconds={showSeconds}
+        precision={picker.precision}
         meridiem={picker.meridiem}
         onMeridiem={picker.setMeridiem}
         // A duration has no morning or afternoon.
@@ -274,7 +293,7 @@ export function JalaliTimePicker(props: JalaliTimePickerProps) {
         <DigitalInput
           fields={picker.fields}
           is12Hour={picker.format === '12h' && !isDuration}
-          showSeconds={showSeconds}
+          precision={picker.precision}
           onHour={picker.setHour}
           onMinute={picker.setMinute}
           onSecond={picker.setSecond}

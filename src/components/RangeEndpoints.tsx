@@ -1,11 +1,8 @@
 'use client';
 
 /**
- * Range mode's start/end switcher.
- *
- * Both endpoints are always visible with their current values, and the active
- * one is marked with a border *and* a filled background — never colour alone,
- * since the two boxes are otherwise identical.
+ * Range mode's start/end switcher. The active endpoint gets a border *and* a
+ * fill — never colour alone, since the two boxes are otherwise identical.
  */
 import type { TimeFormatOptions } from '../format/format';
 import { formatTime } from '../format/format';

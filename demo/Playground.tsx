@@ -9,6 +9,7 @@ import {
   type DurationValue,
   type PickerMode,
   type TimeFormat,
+  type TimePrecision,
   type TimeRange,
   type TimeValue,
 } from '../src';
@@ -71,9 +72,9 @@ function describe(
   range: TimeRange | null,
   duration: DurationValue | null,
   format: TimeFormat,
-  showSeconds: boolean,
+  precision: TimePrecision,
 ): { label: string; value: string }[] {
-  const options = { format, showSeconds };
+  const options = { format, precision };
 
   if (mode === 'duration') {
     if (!duration) return [{ label: 'Value', value: '—' }];
@@ -97,8 +98,8 @@ function describe(
       { label: 'Persian', value: formatTimeRange(range, options) },
       {
         label: 'ISO',
-        value: `${toISOTime(range.start, showSeconds)} – ${
-          range.end ? toISOTime(range.end, showSeconds) : '—'
+        value: `${toISOTime(range.start, precision)} – ${
+          range.end ? toISOTime(range.end, precision) : '—'
         }`,
       },
       {
@@ -113,7 +114,7 @@ function describe(
   if (!single) return [{ label: 'Value', value: '—' }];
   return [
     { label: 'Persian', value: formatTime(single, options) },
-    { label: 'ISO', value: toISOTime(single, showSeconds) },
+    { label: 'ISO', value: toISOTime(single, precision) },
     {
       label: 'Object',
       value: `{ hour: ${single.hour}, minute: ${single.minute}, second: ${single.second} }`,
@@ -129,7 +130,7 @@ export function Playground() {
   const [pickerMode, setPickerMode] = useState<PickerMode>('hybrid');
   const [format, setFormat] = useState<TimeFormat>('24h');
   const [commitMode, setCommitMode] = useState<CommitMode>('confirm');
-  const [showSeconds, setShowSeconds] = useState(false);
+  const [precision, setPrecision] = useState<TimePrecision>('minute');
   const [leadingZero, setLeadingZero] = useState(true);
   const [minuteInterval, setMinuteInterval] = useState(1);
   const [showFooter, setShowFooter] = useState(true);
@@ -162,7 +163,7 @@ export function Playground() {
     pickerMode,
     commitMode,
     showFooter,
-    showSeconds,
+    precision,
   ].join('-');
 
   const parsed = useMemo(() => parseConstraints(customJson), [customJson]);
@@ -175,8 +176,8 @@ export function Playground() {
         : {};
 
   const output = useMemo(
-    () => describe(selectionMode, single, range, duration, format, showSeconds),
-    [selectionMode, single, range, duration, format, showSeconds],
+    () => describe(selectionMode, single, range, duration, format, precision),
+    [selectionMode, single, range, duration, format, precision],
   );
 
   // `key` is passed separately at each call site: React refuses to read a key
@@ -184,7 +185,7 @@ export function Playground() {
   const shared = {
     mode: pickerMode,
     format,
-    showSeconds,
+    precision,
     leadingZero,
     minuteInterval,
     commitMode,
@@ -281,11 +282,17 @@ export function Playground() {
                 ]}
               />
             </Field>
-            <Toggle
-              label="Show seconds"
-              checked={showSeconds}
-              onChange={setShowSeconds}
-            />
+            <Field label="Precision">
+              <SegmentedControl
+                value={precision}
+                onChange={setPrecision}
+                options={[
+                  { value: 'hour', label: 'Hour' },
+                  { value: 'minute', label: '+ Min' },
+                  { value: 'second', label: '+ Sec' },
+                ]}
+              />
+            </Field>
             <Toggle
               label="Leading zero"
               checked={leadingZero}

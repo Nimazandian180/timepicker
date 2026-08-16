@@ -1,17 +1,17 @@
 {
-  "name": "@aliasadollahi/jalali-timepicker",
+  "name": "@nimazandian/jalali-timepicker",
   "version": "0.0.0-development",
   "description": "A self-contained, RTL-first Persian time picker for React — analog clock, digital input, range & duration modes, themeable via CSS variables, no Tailwind. Plugs into @aliasadollahi/jalali-datepicker.",
   "type": "module",
   "license": "MIT",
-  "author": "Ali Asadollahi",
-  "homepage": "https://github.com/aliasadolahi74/jalali-timepicker#readme",
+  "author": "Nima Zandian",
+  "homepage": "https://github.com/Nimazandian180/timepicker#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aliasadolahi74/jalali-timepicker.git"
+    "url": "git+https://github.com/Nimazandian180/timepicker.git"
   },
   "bugs": {
-    "url": "https://github.com/aliasadolahi74/jalali-timepicker/issues"
+    "url": "https://github.com/Nimazandian180/timepicker/issues"
   },
   "keywords": [
     "jalali",

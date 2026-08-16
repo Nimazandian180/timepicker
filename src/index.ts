@@ -5,7 +5,7 @@
  * digital fields. This barrel is the only intended import surface; nothing here
  * depends on a host application, and nothing here depends on
  * `@aliasadollahi/jalali-datepicker` — the optional bridge to it lives in its
- * own entry point, `@aliasadollahi/jalali-timepicker/plugin`.
+ * own entry point, `@nimazandian/jalali-timepicker/plugin`.
  */
 
 // ----- Styled component -----
@@ -54,6 +54,7 @@ export {
   toDate,
   fromDate,
   durationToTotalMinutes,
+  resolvePrecision,
 } from './format/format';
 export type { TimeFormatOptions } from './format/format';
 export { parseTime, isValidTime, parseField } from './format/parse';
@@ -65,6 +66,7 @@ export {
   time,
   MIDNIGHT,
   normalizeTime,
+  truncateTime,
   toMinutes,
   toSeconds,
   fromMinutes,
@@ -115,6 +117,7 @@ export type {
   TimeRange,
   DurationValue,
   TimeFormat,
+  TimePrecision,
   Meridiem,
   ClockStage,
   ClockTick,

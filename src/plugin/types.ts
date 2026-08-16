@@ -41,6 +41,9 @@ export interface JalaliRangeLike {
 /** Mirrors the date picker's `PluginSlot`. */
 export type DatePickerSlot = 'header' | 'panel' | 'footer';
 
+/** Mirrors the date picker's `PluginLayout`. */
+export type DatePickerLayout = 'inline' | 'tabs' | 'steps';
+
 /** Mirrors the date picker's `PluginContext`. */
 export interface DatePickerPluginContext<TState = unknown> {
   state: TState;
@@ -53,6 +56,10 @@ export interface DatePickerPluginContext<TState = unknown> {
   isEmpty: boolean;
   confirm: () => void;
   cancel: () => void;
+  layout: DatePickerLayout;
+  isActive: boolean;
+  goNext: () => void;
+  goBack: () => void;
 }
 
 /** Mirrors the date picker's `JalaliDatePickerPlugin`. */
@@ -62,6 +69,8 @@ export interface DatePickerPlugin<
 > {
   name: string;
   slot?: DatePickerSlot;
+  /** Label for this plugin's tab or step under `'tabs'` / `'steps'`. */
+  title?: string;
   initialState?: TState | (() => TState);
   render?(ctx: DatePickerPluginContext<TState>): ReactNode;
   extendValue?(value: JalaliDateLike | JalaliRangeLike, state: TState): TExtra;

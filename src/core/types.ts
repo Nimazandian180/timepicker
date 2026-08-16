@@ -12,7 +12,7 @@ export interface TimeValue {
   hour: number;
   /** Minute, 0–59. */
   minute: number;
-  /** Second, 0–59. Always present; ignored entirely unless `showSeconds`. */
+  /** Second, 0–59. Always present; zero unless the precision reaches seconds. */
   second: number;
 }
 
@@ -37,6 +37,17 @@ export interface DurationValue {
 
 /** 12-hour display with a ق.ظ/ب.ظ pill, or plain 24-hour display. */
 export type TimeFormat = '12h' | '24h';
+
+/**
+ * How fine a time the picker asks for — hour only, hour + minute (the default),
+ * or hour + minute + second.
+ *
+ * This is one setting rather than two booleans because the three options are a
+ * ladder: there is no "seconds but no minutes". It also decides what a
+ * {@link TimeValue} carries — anything finer than the precision is zeroed, so a
+ * picker set to `'hour'` emits `09:00:00` and never `09:47:00`.
+ */
+export type TimePrecision = 'hour' | 'minute' | 'second';
 
 /** Which half of the day a 12-hour reading falls in. */
 export type Meridiem = 'am' | 'pm';
